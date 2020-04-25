@@ -526,7 +526,11 @@ class Thermostat(ClimateDevice):
         """Return available preset modes."""
         return list(self._preset_modes.values())
 
-    def set_auto_temp_hold(self, heat_temp, cool_temp):
+    def set_auto_temp_hold(self, heat_temp, cool_temp, hold_pref=None, hold_hours=None):
+        if hold_pref == 'holdHours':
+            if hold_hours == 'unavailable' or hold_hours is None:
+                hold_hours = 2
+
         """Set temperature hold in auto mode."""
         if cool_temp is not None:
             cool_temp_setpoint = cool_temp
@@ -542,7 +546,8 @@ class Thermostat(ClimateDevice):
             self.thermostat_index,
             cool_temp_setpoint,
             heat_temp_setpoint,
-            self.hold_preference(),
+            hold_pref,
+            hold_hours,
         )
         _LOGGER.debug(
             "Setting ecobee hold_temp to: heat=%s, is=%s, cool=%s, is=%s",
@@ -591,7 +596,10 @@ class Thermostat(ClimateDevice):
             delta = self.thermostat["settings"]["heatCoolMinDelta"] / 10
             heat_temp = temp - delta
             cool_temp = temp + delta
-        self.set_auto_temp_hold(heat_temp, cool_temp)
+
+        hold_pref = self.hold_preference()
+        hold_hours = self.hold_hours(hold_pref)
+        self.set_auto_temp_hold(heat_temp, cool_temp, hold_pref, hold_hours)
 
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
@@ -602,7 +610,9 @@ class Thermostat(ClimateDevice):
         if self.hvac_mode == HVAC_MODE_AUTO and (
             low_temp is not None or high_temp is not None
         ):
-            self.set_auto_temp_hold(low_temp, high_temp)
+            hold_pref = self.hold_preference()
+            hold_hours = self.hold_hours(hold_pref)
+            self.set_auto_temp_hold(low_temp, high_temp, hold_pref, hold_hours)
         elif temp is not None:
             self.set_temp_hold(temp)
         else:
@@ -636,16 +646,26 @@ class Thermostat(ClimateDevice):
         self.update_without_throttle = True
 
     def hold_preference(self):
-        """Return user preference setting for hold time."""
-        # Values returned from thermostat are 'useEndTime4hour',
-        # 'useEndTime2hour', 'nextTransition', 'indefinite', 'askMe'
-        default = self.thermostat["settings"]["holdAction"]
-        if default == "nextTransition":
-            return default
-        # add further conditions if other hold durations should be
-        # supported; note that this should not include 'indefinite'
-        # as an indefinite away hold is interpreted as away_mode
-        return "nextTransition"
+        hold_mode = self.hass.states.get('input_select.ecobee_hold_mode').state
+        _LOGGER.warn("hold mode: %s", hold_mode)
+
+        if hold_mode == 'unavailable' or hold_mode is None:
+            hold_mode = 'nextTransition'
+        
+        return hold_mode
+
+    def hold_hours(self, hold_mode):
+        if hold_mode == 'holdHours':
+            hold_hours = int(float(self.hass.states.get('input_number.ecobee_hold_hours').state))
+            _LOGGER.warn("hold hours: %s", hold_hours)
+
+            if hold_hours == 'unavailable' or hold_hours is None:
+                hold_hours = 2
+
+        else:
+            hold_hours = None
+
+        return hold_hours
 
     def create_vacation(self, service_data):
         """Create a vacation with user-specified parameters."""
