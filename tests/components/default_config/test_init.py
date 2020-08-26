@@ -1,27 +1,29 @@
 """Test the default_config init."""
-from unittest.mock import patch
-
 import pytest
 
 from homeassistant.setup import async_setup_component
 
-from tests.common import MockDependency, mock_coro
+from tests.async_mock import patch
 
 
 @pytest.fixture(autouse=True)
-def zeroconf_mock():
+def mock_zeroconf():
     """Mock zeroconf."""
-    with MockDependency("zeroconf") as mocked_zeroconf:
-        mocked_zeroconf.Zeroconf.return_value.register_service.return_value = mock_coro(
-            True
-        )
+    with patch("homeassistant.components.zeroconf.HaZeroconf"):
         yield
 
 
 @pytest.fixture(autouse=True)
-def netdisco_mock():
-    """Mock netdisco."""
-    with MockDependency("netdisco", "discovery"):
+def mock_ssdp():
+    """Mock ssdp."""
+    with patch("homeassistant.components.ssdp.Scanner.async_scan"):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def mock_updater():
+    """Mock updater."""
+    with patch("homeassistant.components.updater.get_newest_version"):
         yield
 
 

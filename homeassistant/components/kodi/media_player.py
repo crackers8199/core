@@ -1,5 +1,7 @@
 """Support for interfacing with the XBMC/Kodi JSON-RPC API."""
+import asyncio
 from collections import OrderedDict
+from datetime import timedelta
 from functools import wraps
 import logging
 import re
@@ -14,7 +16,7 @@ import voluptuous as vol
 
 from homeassistant.components.kodi import SERVICE_CALL_METHOD
 from homeassistant.components.kodi.const import DOMAIN
-from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerDevice
+from homeassistant.components.media_player import PLATFORM_SCHEMA, MediaPlayerEntity
 from homeassistant.components.media_player.const import (
     MEDIA_TYPE_CHANNEL,
     MEDIA_TYPE_MOVIE,
@@ -53,6 +55,7 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv, script
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.template import Template
 import homeassistant.util.dt as dt_util
 from homeassistant.util.yaml import dump
@@ -81,6 +84,8 @@ DEPRECATED_TURN_OFF_ACTIONS = {
     "reboot": "System.Reboot",
     "shutdown": "System.Shutdown",
 }
+
+WEBSOCKET_WATCHDOG_INTERVAL = timedelta(minutes=3)
 
 # https://github.com/xbmc/xbmc/blob/master/xbmc/media/MediaType.h
 MEDIA_TYPES = {
@@ -171,7 +176,7 @@ def _check_deprecated_turn_off(hass, turn_off_action):
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the Kodi platform."""
     if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = dict()
+        hass.data[DOMAIN] = {}
 
     unique_id = None
     # Is this a manual configuration?
@@ -248,7 +253,7 @@ def cmd(func):
     return wrapper
 
 
-class KodiDevice(MediaPlayerDevice):
+class KodiDevice(MediaPlayerEntity):
     """Representation of a XBMC/Kodi device."""
 
     def __init__(
@@ -333,7 +338,7 @@ class KodiDevice(MediaPlayerDevice):
         self._turn_on_action = turn_on_action
         self._turn_off_action = turn_off_action
         self._enable_websocket = websocket
-        self._players = list()
+        self._players = []
         self._properties = {}
         self._item = {}
         self._app_properties = {}
@@ -364,14 +369,14 @@ class KodiDevice(MediaPlayerDevice):
         self._item = {}
         self._media_position_updated_at = None
         self._media_position = None
-        self.async_schedule_update_ha_state()
+        self.async_write_ha_state()
 
     @callback
     def async_on_volume_changed(self, sender, data):
         """Handle the volume changes."""
         self._app_properties["volume"] = data["volume"]
         self._app_properties["muted"] = data["muted"]
-        self.async_schedule_update_ha_state()
+        self.async_write_ha_state()
 
     @callback
     def async_on_quit(self, sender, data):
@@ -429,11 +434,31 @@ class KodiDevice(MediaPlayerDevice):
                 # to reconnect on the next poll.
                 pass
             # Update HA state after Kodi disconnects
-            self.async_schedule_update_ha_state()
+            self.async_write_ha_state()
 
         # Create a task instead of adding a tracking job, since this task will
         # run until the websocket connection is closed.
         self.hass.loop.create_task(ws_loop_wrapper())
+
+    async def async_added_to_hass(self):
+        """Connect the websocket if needed."""
+        if not self._enable_websocket:
+            return
+
+        asyncio.create_task(self.async_ws_connect())
+
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass,
+                self._async_connect_websocket_if_disconnected,
+                WEBSOCKET_WATCHDOG_INTERVAL,
+            )
+        )
+
+    async def _async_connect_websocket_if_disconnected(self, *_):
+        """Reconnect the websocket if it fails."""
+        if not self._ws_server.connected:
+            await self.async_ws_connect()
 
     async def async_update(self):
         """Retrieve latest state."""
@@ -444,9 +469,6 @@ class KodiDevice(MediaPlayerDevice):
             self._item = {}
             self._app_properties = {}
             return
-
-        if self._enable_websocket and not self._ws_server.connected:
-            self.hass.async_create_task(self.async_ws_connect())
 
         self._app_properties = await self.server.Application.GetProperties(
             ["volume", "muted"]
@@ -530,9 +552,10 @@ class KodiDevice(MediaPlayerDevice):
 
         If the media type cannot be detected, the player type is used.
         """
-        if MEDIA_TYPES.get(self._item.get("type")) is None and self._players:
+        item_type = MEDIA_TYPES.get(self._item.get("type"))
+        if (item_type is None or item_type == "channel") and self._players:
             return MEDIA_TYPES.get(self._players[0]["type"])
-        return MEDIA_TYPES.get(self._item.get("type"))
+        return item_type
 
     @property
     def media_duration(self):

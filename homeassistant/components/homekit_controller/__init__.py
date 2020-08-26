@@ -1,6 +1,5 @@
 """Support for Homekit device discovery."""
 import logging
-import os
 from typing import Any, Dict
 
 import aiohomekit
@@ -12,6 +11,7 @@ from aiohomekit.model.characteristics import (
 )
 from aiohomekit.model.services import Service, ServicesTypes
 
+from homeassistant.components import zeroconf
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import Entity
@@ -213,18 +213,9 @@ async def async_setup(hass, config):
     map_storage = hass.data[ENTITY_MAP] = EntityMapStorage(hass)
     await map_storage.async_initialize()
 
-    hass.data[CONTROLLER] = aiohomekit.Controller()
+    zeroconf_instance = await zeroconf.async_get_instance(hass)
+    hass.data[CONTROLLER] = aiohomekit.Controller(zeroconf_instance=zeroconf_instance)
     hass.data[KNOWN_DEVICES] = {}
-
-    dothomekit_dir = hass.config.path(".homekit")
-    if os.path.exists(dothomekit_dir):
-        _LOGGER.warning(
-            (
-                "Legacy homekit_controller state found in %s. Support for reading "
-                "the folder is deprecated and will be removed in 0.109.0."
-            ),
-            dothomekit_dir,
-        )
 
     return True
 

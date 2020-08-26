@@ -13,7 +13,7 @@ from nexia.const import (
 )
 import voluptuous as vol
 
-from homeassistant.components.climate import ClimateDevice
+from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     ATTR_HUMIDITY,
     ATTR_MAX_HUMIDITY,
@@ -120,7 +120,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         SERVICE_SET_HUMIDIFY_SETPOINT,
     )
     platform.async_register_entity_service(
-        SERVICE_SET_AIRCLEANER_MODE, SET_AIRCLEANER_SCHEMA, SERVICE_SET_AIRCLEANER_MODE,
+        SERVICE_SET_AIRCLEANER_MODE, SET_AIRCLEANER_SCHEMA, SERVICE_SET_AIRCLEANER_MODE
     )
 
     entities = []
@@ -133,7 +133,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(entities, True)
 
 
-class NexiaZone(NexiaThermostatZoneEntity, ClimateDevice):
+class NexiaZone(NexiaThermostatZoneEntity, ClimateEntity):
     """Provides Nexia Climate support."""
 
     def __init__(self, coordinator, zone):
@@ -322,9 +322,9 @@ class NexiaZone(NexiaThermostatZoneEntity, ClimateDevice):
 
     def set_temperature(self, **kwargs):
         """Set target temperature."""
-        new_heat_temp = kwargs.get(ATTR_TARGET_TEMP_LOW, None)
-        new_cool_temp = kwargs.get(ATTR_TARGET_TEMP_HIGH, None)
-        set_temp = kwargs.get(ATTR_TEMPERATURE, None)
+        new_heat_temp = kwargs.get(ATTR_TARGET_TEMP_LOW)
+        new_cool_temp = kwargs.get(ATTR_TARGET_TEMP_HIGH)
+        set_temp = kwargs.get(ATTR_TEMPERATURE)
 
         deadband = self._thermostat.get_deadband()
         cur_cool_temp = self._zone.get_cooling_setpoint()

@@ -10,7 +10,7 @@ from homeassistant.components.air_quality import (
 )
 from homeassistant.const import CONF_NAME
 
-from .const import ATTR_STATION, DOMAIN, ICONS_MAP
+from .const import ATTR_STATION, DEFAULT_NAME, DOMAIN, ICONS_MAP, MANUFACTURER
 
 ATTRIBUTION = "Data provided by GIOŚ"
 
@@ -118,6 +118,16 @@ class GiosAirQuality(AirQualityEntity):
         return self.coordinator.gios.station_id
 
     @property
+    def device_info(self):
+        """Return the device info."""
+        return {
+            "identifiers": {(DOMAIN, self.coordinator.gios.station_id)},
+            "name": DEFAULT_NAME,
+            "manufacturer": MANUFACTURER,
+            "entry_type": "service",
+        }
+
+    @property
     def should_poll(self):
         """Return the polling requirement of the entity."""
         return False
@@ -142,11 +152,9 @@ class GiosAirQuality(AirQualityEntity):
 
     async def async_added_to_hass(self):
         """Connect to dispatcher listening for entity data notifications."""
-        self.coordinator.async_add_listener(self.async_write_ha_state)
-
-    async def async_will_remove_from_hass(self):
-        """Disconnect from update signal."""
-        self.coordinator.async_remove_listener(self.async_write_ha_state)
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
 
     async def async_update(self):
         """Update GIOS entity."""

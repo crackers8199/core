@@ -108,10 +108,10 @@ class HomematicipGenericDevice(Entity):
         # Don't update disabled entities
         if self.enabled:
             _LOGGER.debug("Event %s (%s)", self.name, self._device.modelType)
-            self.async_schedule_update_ha_state()
+            self.async_write_ha_state()
         else:
             _LOGGER.debug(
-                "Device Changed Event for %s (%s) not fired. Entity is disabled.",
+                "Device Changed Event for %s (%s) not fired. Entity is disabled",
                 self.name,
                 self._device.modelType,
             )

@@ -8,7 +8,7 @@ from homeassistant.components.lock import (
     DOMAIN,
     STATE_LOCKED,
     STATE_UNLOCKED,
-    LockDevice,
+    LockEntity,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -49,7 +49,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
 
 @STRICT_MATCH(channel_names=CHANNEL_DOORLOCK)
-class ZhaDoorLock(ZhaEntity, LockDevice):
+class ZhaDoorLock(ZhaEntity, LockEntity):
     """Representation of a ZHA lock."""
 
     def __init__(self, unique_id, zha_device, channels, **kwargs):
@@ -60,7 +60,7 @@ class ZhaDoorLock(ZhaEntity, LockDevice):
     async def async_added_to_hass(self):
         """Run when about to be added to hass."""
         await super().async_added_to_hass()
-        await self.async_accept_signal(
+        self.async_accept_signal(
             self._doorlock_channel, SIGNAL_ATTR_UPDATED, self.async_set_state
         )
 
