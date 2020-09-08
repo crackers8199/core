@@ -465,6 +465,7 @@ class Thermostat(ClimateEntity):
             ],
             "equipment_running": status,
             "fan_min_on_time": self.thermostat["settings"]["fanMinOnTime"],
+            "events": self.my_thermostat_events,
         }
 
     @property
@@ -535,6 +536,19 @@ class Thermostat(ClimateEntity):
     def preset_modes(self):
         """Return available preset modes."""
         return list(self._preset_modes.values())
+
+    @property
+    def my_thermostat_events(self):
+        my_events = []
+        """Return current hold mode."""
+        events = self.thermostat['events']
+        for event in events:
+            my_events.append(event);
+        
+        if my_events:
+            return my_events
+
+        return None
 
     def set_auto_temp_hold(self, heat_temp, cool_temp, hold_pref=None, hold_hours=None):
         if hold_pref == 'holdHours':
