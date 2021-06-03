@@ -559,9 +559,10 @@ class Thermostat(ClimateEntity):
         if self.preset_mode == PRESET_VACATION:
             self.data.ecobee.delete_vacation(self.thermostat_index, self.vacation)
 
+        hold_pref = self.hold_preference()
         if preset_mode == PRESET_AWAY:
             self.data.ecobee.set_climate_hold(
-                self.thermostat_index, "away", "indefinite", self.hold_hours()
+                self.thermostat_index, "away", "indefinite", self.hold_hours(hold_pref)
             )
 
         elif preset_mode == PRESET_TEMPERATURE:
@@ -572,7 +573,7 @@ class Thermostat(ClimateEntity):
                 self.thermostat_index,
                 PRESET_TO_ECOBEE_HOLD[preset_mode],
                 self.hold_preference(),
-                self.hold_hours(),
+                self.hold_hours(hold_pref),
             )
 
         elif preset_mode == PRESET_NONE:
@@ -591,7 +592,7 @@ class Thermostat(ClimateEntity):
                     self.thermostat_index,
                     climate_ref,
                     self.hold_preference(),
-                    self.hold_hours(),
+                    self.hold_hours(hold_pref),
                 )
             else:
                 _LOGGER.warning("Received unknown preset mode: %s", preset_mode)
@@ -601,7 +602,7 @@ class Thermostat(ClimateEntity):
                 self.thermostat_index,
                 preset_mode,
                 self.hold_preference(),
-                self.hold_hours(),
+                self.hold_hours(hold_pref),
             )
 
     @property
