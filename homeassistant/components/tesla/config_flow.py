@@ -20,9 +20,9 @@ from .const import (
     CONF_WAKE_ON_START,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_WAKE_ON_START,
+    DOMAIN,
     MIN_SCAN_INTERVAL,
 )
-from .const import DOMAIN  # pylint:disable=unused-import
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,6 +106,7 @@ class TeslaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for entry in self._async_current_entries():
             if entry.data.get(CONF_USERNAME) == username:
                 return entry
+        return None
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
@@ -146,7 +147,8 @@ async def validate_input(hass: core.HomeAssistant, data):
     """
 
     config = {}
-    websession = aiohttp_client.async_get_clientsession(hass)
+    websession = aiohttp_client.async_create_clientsession(hass)
+
     try:
         controller = TeslaAPI(
             websession,
